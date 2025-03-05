@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpressthree-msgwwpthree
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wordpressthree-msgwwpthree
+  template:
+    metadata:
+      annotations:
+        redeploy: 'true'
+      labels:
+        app: wordpressthree-msgwwpthree
+    spec:
+      containers:
+      - image: 672072155362.dkr.ecr.us-east-1.amazonaws.com/wpecrthree:latest
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 9000
+          initialDelaySeconds: 180
+          periodSeconds: 5
+        name: wpecrcontthree
+        ports:
+        - containerPort: 9000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msgwwpthree-service
+spec:
+  ports:
+  - port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: wordpressthree-msgwwpthree
+  type: NodePort
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: 'true'
+  name: my-aws-ingress-class
+spec:
+  controller: ingress.k8s.aws/alb
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/load-balancer-name: wordpressthree-alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/subnets: subnet-0a7f67b56483f19e8, subnet-0808c8ea504147e3c
+    alb.ingress.kubernetes.io/success-codes: 200-404
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+  labels:
+    app: app-wordpressthree
+  name: ingress-wordpressthree
+spec:
+  defaultBackend:
+    service:
+      name: msgwwpthree-service
+      port:
+        number: 9000
+  ingressClassName: my-aws-ingress-class
