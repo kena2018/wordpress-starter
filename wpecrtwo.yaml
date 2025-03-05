@@ -1,0 +1,77 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: wordpresstwo-msgwwptwo
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: wordpresstwo-msgwwptwo
+  template:
+    metadata:
+      annotations:
+        redeploy: 'true'
+      labels:
+        app: wordpresstwo-msgwwptwo
+    spec:
+      containers:
+      - image: 672072155362.dkr.ecr.us-east-1.amazonaws.com/wpecrtwo:latest
+        livenessProbe:
+          failureThreshold: 3
+          httpGet:
+            path: /
+            port: 9000
+          initialDelaySeconds: 180
+          periodSeconds: 5
+        name: wpecrconttwo
+        ports:
+        - containerPort: 9000
+      restartPolicy: Always
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: msgwwptwo-service
+spec:
+  ports:
+  - port: 9000
+    protocol: TCP
+    targetPort: 9000
+  selector:
+    app: wordpresstwo-msgwwptwo
+  type: NodePort
+---
+apiVersion: networking.k8s.io/v1
+kind: IngressClass
+metadata:
+  annotations:
+    ingressclass.kubernetes.io/is-default-class: 'true'
+  name: my-aws-ingress-class
+spec:
+  controller: ingress.k8s.aws/alb
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  annotations:
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-path: /
+    alb.ingress.kubernetes.io/healthcheck-port: traffic-port
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/load-balancer-name: wordpresstwo-alb
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/subnets: subnet-0714b287c76f75cd7, subnet-0e336f1b39ba1cf00
+    alb.ingress.kubernetes.io/success-codes: 200-404
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
+  labels:
+    app: app-wordpresstwo
+  name: ingress-wordpresstwo
+spec:
+  defaultBackend:
+    service:
+      name: msgwwptwo-service
+      port:
+        number: 9000
+  ingressClassName: my-aws-ingress-class
