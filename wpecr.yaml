@@ -1,18 +1,18 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: wordpressproone-wordpressgw
+  name: wordpress-msgatewaywp
 spec:
   replicas: 2
   selector:
     matchLabels:
-      app: wordpressproone-wordpressgw
+      app: wordpress-msgatewaywp
   template:
     metadata:
       annotations:
         redeploy: 'true'
       labels:
-        app: wordpressproone-wordpressgw
+        app: wordpress-msgatewaywp
     spec:
       containers:
       - image: 672072155362.dkr.ecr.us-east-1.amazonaws.com/wpecr:latest
@@ -20,25 +20,25 @@ spec:
           failureThreshold: 3
           httpGet:
             path: /
-            port: 8001
+            port: 9000
           initialDelaySeconds: 180
           periodSeconds: 5
         name: wpecrcont
         ports:
-        - containerPort: 8001
+        - containerPort: 9000
       restartPolicy: Always
 ---
 apiVersion: v1
 kind: Service
 metadata:
-  name: wordpressgw-service
+  name: msgatewaywp-service
 spec:
   ports:
-  - port: 8001
+  - port: 9000
     protocol: TCP
-    targetPort: 8001
+    targetPort: 9000
   selector:
-    app: wordpressproone-wordpressgw
+    app: wordpress-msgatewaywp
   type: NodePort
 ---
 apiVersion: networking.k8s.io/v1
@@ -60,18 +60,18 @@ metadata:
     alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
     alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
     alb.ingress.kubernetes.io/healthy-threshold-count: '2'
-    alb.ingress.kubernetes.io/load-balancer-name: wordpressproone-alb
+    alb.ingress.kubernetes.io/load-balancer-name: wordpress-alb
     alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/subnets: subnet-0dadc9c511fe1b6c9, subnet-0bae566b7b50c2446
+    alb.ingress.kubernetes.io/subnets: subnet-0458e04e260bd1662, subnet-0ba94d15ff777ff32
     alb.ingress.kubernetes.io/success-codes: 200-404
     alb.ingress.kubernetes.io/unhealthy-threshold-count: '2'
   labels:
-    app: app-wordpressproone
-  name: ingress-wordpressproone
+    app: app-wordpress
+  name: ingress-wordpress
 spec:
   defaultBackend:
     service:
-      name: wordpressgw-service
+      name: msgatewaywp-service
       port:
-        number: 8001
+        number: 9000
   ingressClassName: my-aws-ingress-class
