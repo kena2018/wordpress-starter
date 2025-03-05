@@ -51,7 +51,7 @@ RUN echo "upload_max_filesize = 128M" > /usr/local/etc/php/conf.d/uploads.ini \
     && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
 
 # Copy Nginx configuration
-COPY nginxwp.conf /etc/nginx/conf.d/default.conf
+COPY ./nginxwp.conf /etc/nginx/conf.d/default.conf
 
 # Set permissions for WordPress files
 RUN chown -R www-data:www-data /var/www/html/wp-content \
