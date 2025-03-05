@@ -1,53 +1,71 @@
-FROM php:8.2-fpm
+# Use an official PHP image with Nginx support
+FROM php:7.4-fpm
 
-# Set DEBIAN_FRONTEND to avoid interactive prompts
-ENV DEBIAN_FRONTEND=noninteractive
-
-# Set working directory
-WORKDIR /var/www
-
-# Install required dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
     nginx \
-    git \
+    curl \
     unzip \
+    zip \
+    git \
     libpng-dev \
     libjpeg-dev \
     libfreetype6-dev \
-    libonig-dev \
     libzip-dev \
+    mariadb-client \
     && docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install gd pdo pdo_mysql mbstring zip exif pcntl bcmath \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
-
-# Clone the common utility folder from the GitHub repository
-RUN git clone https://github.com/kena2018/wordpress-starter.git /var/www/cosmic
-
-# Copy application files to the container
-COPY . /var/www
-
-# Set permissions for the web server
-RUN chown -R www-data:www-data /var/www
-
-# Set the working directory to the application folder
-WORKDIR /var/www/wordpress-starter/app
+    && docker-php-ext-install \
+    pdo_mysql \
+    mysqli \
+    zip \
+    gd \
+    exif \
+    pcntl \
+    bcmath \
+    opcache
 
 # Install Composer globally
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer
+RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer \
+    && composer self-update
 
-# Install dependencies if composer.json is present
-RUN if [ -f "composer.json" ]; then composer install --no-dev --optimize-autoloader; fi
+# Set working directory
+WORKDIR /var/www/html
 
-# Copy the default Nginx configuration file
-COPY docker_files/docker_files/nginx/default.conf /etc/nginx/conf.d/default.conf
+# Copy existing WordPress project
+COPY . /var/www/html/
 
-# Expose necessary ports
-EXPOSE 80 9000
-EXPOSE 8001
+# Ensure Composer plugins are allowed before running install
+RUN composer config --global --no-interaction allow-plugins.composer/installers true \
+    && composer config --global --no-interaction allow-plugins.johnpbloch/wordpress-core-installer true
 
-# Define environment variable
-ENV NAME wordpressproone
+# Install Composer dependencies if composer.json exists
+RUN if [ -f "/var/www/html/composer.json" ]; then composer install --no-dev --optimize-autoloader --no-scripts; fi
+
+# (Optional) Install WordPress coding standards
+RUN composer global require justcoded/wpcs --no-progress --no-suggest || true
+
+# Configure PHP settings for performance
+RUN echo "upload_max_filesize = 128M" > /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "post_max_size = 128M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "memory_limit = 512M" >> /usr/local/etc/php/conf.d/uploads.ini \
+    && echo "max_execution_time = 300" >> /usr/local/etc/php/conf.d/uploads.ini
+
+# Copy Nginx configuration
+COPY wnginx.conf /etc/nginx/conf.d/default.conf
+
+# Set permissions for WordPress files
+RUN chown -R www-data:www-data /var/www/html/wp-content \
+    && chmod -R 755 /var/www/html/wp-content
+
+# Create startup script to run both Nginx & PHP-FPM
+RUN echo '#!/bin/bash\nnginx -g "daemon off;" & php-fpm -F' > /start.sh \
+    && chmod +x /start.sh
+
+# Expose HTTP port
+EXPOSE 80
+EXPOSE 9000
 
 # Start Nginx and PHP-FPM
-CMD ["sh", "-c", "nginx -g 'daemon off;' & php-fpm"]
+CMD ["/bin/bash", "/start.sh"]
+
+
